@@ -444,6 +444,13 @@ foreach(p LIB BIN INCLUDE CMAKE PYTHON MATLAB)
   endif()
 endforeach()
 
+# Provide a safe install prefix in case CMAKE_INSTALL_PREFIX is empty
+if(NOT DEFINED CMAKE_INSTALL_PREFIX OR "${CMAKE_INSTALL_PREFIX}" STREQUAL "")
+  set(_CASADI_SAFE_INSTALL_PREFIX "${CMAKE_BINARY_DIR}")
+else()
+  set(_CASADI_SAFE_INSTALL_PREFIX "${CMAKE_INSTALL_PREFIX}")
+endif()
+
 # Set rpath
 if(WITH_SELFCONTAINED)
   if(APPLE)
@@ -2231,6 +2238,21 @@ if("$ENV{DEFAULT_DOCKCROSS_IMAGE}" MATCHES "manylinux2014" OR "$ENV{DEFAULT_DOCK
 endif()
 
 # Create casadi-config.cmake
+# Defensive: ensure LIB_PREFIX and CMAKE_PREFIX are non-empty and absolute
+if(NOT DEFINED LIB_PREFIX OR "${LIB_PREFIX}" STREQUAL "")
+  # Fallback to conventional library dir under install prefix
+  set(LIB_PREFIX "${CMAKE_INSTALL_PREFIX}/lib")
+endif()
+if(NOT IS_ABSOLUTE "${LIB_PREFIX}")
+  set(LIB_PREFIX "${CMAKE_INSTALL_PREFIX}/${LIB_PREFIX}")
+endif()
+if(NOT DEFINED CMAKE_PREFIX OR "${CMAKE_PREFIX}" STREQUAL "")
+  # Fallback to a cmake directory under the library prefix
+  set(CMAKE_PREFIX "${LIB_PREFIX}/cmake/casadi")
+endif()
+if(NOT IS_ABSOLUTE "${CMAKE_PREFIX}")
+  set(CMAKE_PREFIX "${CMAKE_INSTALL_PREFIX}/${CMAKE_PREFIX}")
+endif()
 file(RELATIVE_PATH REL_LIB_PREFIX "${CMAKE_PREFIX}" "${LIB_PREFIX}")
 # ... for the build tree
 set(CONF_LIBRARY_DIRS "${LIBRARY_OUTPUT_PATH}")
@@ -2259,7 +2281,18 @@ install(FILES
   DESTINATION "${LIB_PREFIX}/pkgconfig" COMPONENT dev)
 
 # Install the export set for use with the install-tree
-file(RELATIVE_PATH REL_CMAKE_PREFIX "${CMAKE_INSTALL_PREFIX}" "${CMAKE_PREFIX}")
+## Ensure CMAKE_PREFIX is valid when computing relative path for export install
+if(NOT DEFINED CMAKE_PREFIX OR "${CMAKE_PREFIX}" STREQUAL "")
+  set(CMAKE_PREFIX "${LIB_PREFIX}/cmake/casadi")
+endif()
+if(NOT IS_ABSOLUTE "${CMAKE_PREFIX}")
+  set(CMAKE_PREFIX "${CMAKE_INSTALL_PREFIX}/${CMAKE_PREFIX}")
+endif()
+file(RELATIVE_PATH REL_CMAKE_PREFIX "${_CASADI_SAFE_INSTALL_PREFIX}" "${CMAKE_PREFIX}")
+if(REL_CMAKE_PREFIX STREQUAL "")
+  # Fallback to a safe default relative location
+  set(REL_CMAKE_PREFIX "${LIB_PREFIX}/cmake/casadi")
+endif()
 install(EXPORT casadi-targets NAMESPACE casadi:: DESTINATION ${REL_CMAKE_PREFIX})
 
 set(CPACK_PACKAGE_CONTACT "casadi-users@googlegroups.com")

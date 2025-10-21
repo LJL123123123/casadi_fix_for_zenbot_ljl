@@ -37,8 +37,21 @@ macro(casadi_library name)
   endif()
   generate_export_header(${name})
   
-  file(RELATIVE_PATH TREL_LIB_PREFIX "${CMAKE_INSTALL_PREFIX}" "${LIB_PREFIX}")
-  file(RELATIVE_PATH TREL_BIN_PREFIX "${CMAKE_INSTALL_PREFIX}" "${BIN_PREFIX}")
+  # Defensive: ensure LIB_PREFIX and BIN_PREFIX are defined and absolute
+  if(NOT DEFINED LIB_PREFIX OR "${LIB_PREFIX}" STREQUAL "")
+    set(LIB_PREFIX "${CMAKE_INSTALL_PREFIX}/lib")
+  endif()
+  if(NOT IS_ABSOLUTE "${LIB_PREFIX}")
+    set(LIB_PREFIX "${CMAKE_INSTALL_PREFIX}/${LIB_PREFIX}")
+  endif()
+  if(NOT DEFINED BIN_PREFIX OR "${BIN_PREFIX}" STREQUAL "")
+    set(BIN_PREFIX "${CMAKE_INSTALL_PREFIX}/bin")
+  endif()
+  if(NOT IS_ABSOLUTE "${BIN_PREFIX}")
+    set(BIN_PREFIX "${CMAKE_INSTALL_PREFIX}/${BIN_PREFIX}")
+  endif()
+  file(RELATIVE_PATH TREL_LIB_PREFIX "${_CASADI_SAFE_INSTALL_PREFIX}" "${LIB_PREFIX}")
+  file(RELATIVE_PATH TREL_BIN_PREFIX "${_CASADI_SAFE_INSTALL_PREFIX}" "${BIN_PREFIX}")
 
   # Link with the core
   if(NOT "${name}" STREQUAL "casadi")
